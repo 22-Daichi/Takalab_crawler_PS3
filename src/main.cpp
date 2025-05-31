@@ -25,7 +25,7 @@ int leftWheelPwr = 0;
 bool rightWheelDir = 0;
 bool leftWheelDir = 0;
 
-int maxPwr = 50;
+int maxPwr = 250;
 
 int t = 0;
 
@@ -53,7 +53,6 @@ void pinModeSetup()
   pinMode(inputPin, INPUT_PULLDOWN); // プルアップ入力
   pinMode(outputPin, OUTPUT);        // 出力モード
   digitalWrite(outputPin, LOW);      // 初期はLOW
-
 }
 
 void pwmSetup()
@@ -75,7 +74,7 @@ void setup()
   Serial.begin(9600);
   // Ps3.attach(notify);
   Ps3.attachOnConnect(onConnect);
-  Ps3.begin("5c:6d:20:2b:b2:f9"); // 9c:9c:1f:d0:04:be
+  Ps3.begin("9c:9c:1f:d0:04:be"); // 9c:9c:1f:d0:04:be
   Serial.println("Ready.");
   pwmSetup();
   attachInterrupt(digitalPinToInterrupt(inputPin), handleInterrupt, FALLING);
