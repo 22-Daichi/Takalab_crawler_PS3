@@ -12,10 +12,10 @@ const int leftWheelPwrPin = 16; // 強すぎ
 const int rightWheelDirPin = 17;
 const int leftWheelDirPin = 4; */
 
-const int rightWheelPwrPin = 5;
-const int leftWheelPwrPin = 16; // 強すぎ
-const int rightWheelDirPin = 17;
-const int leftWheelDirPin = 4;
+const int leftWheelPwrPin = 5;
+const int rightWheelPwrPin = 16; // 強すぎ
+const int leftWheelDirPin = 17;
+const int rightWheelDirPin = 4;
 
 const int inputPin = 15; // 入力ピン（pullvdown）
 const int outputPin = 2; // 出力ピン
@@ -25,7 +25,7 @@ int leftWheelPwr = 0;
 bool rightWheelDir = 0;
 bool leftWheelDir = 0;
 
-int maxPwr = 50;
+int maxPwr = 150;
 
 int t = 0;
 
