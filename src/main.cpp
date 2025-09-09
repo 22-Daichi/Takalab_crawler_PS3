@@ -7,40 +7,24 @@
 volatile unsigned long lastInterruptTime = 0;
 volatile unsigned long currentTime = 0;
 
-/* const int rightWheelPwrPin = 5;
-const int leftWheelPwrPin = 16; // 強すぎ
-const int rightWheelDirPin = 17;
-const int leftWheelDirPin = 4; */
-
 const int leftWheelPwrPin = 5;
 const int rightWheelPwrPin = 16; // 強すぎ
 const int leftWheelDirPin = 17;
 const int rightWheelDirPin = 4;
 
-const int inputPin = 15; // 入力ピン（pullvdown）
-const int outputPin = 2; // 出力ピン
+const int inputPin = 25;  // 入力ピン（pullvdown）
+const int outputPin = 12; // 出力ピン
 
 int rightWheelPwr = 0;
 int leftWheelPwr = 0;
 bool rightWheelDir = 0;
 bool leftWheelDir = 0;
 
-int maxPwr = 150;
+int maxPwr = 200;
 
 int t = 0;
 
 volatile bool triggered = true;
-
-void IRAM_ATTR handleInterrupt()
-{
-  currentTime = millis();
-  if (currentTime - lastInterruptTime > 50)
-  { // 50ms以上の間隔のみ有効
-    triggered = true;
-    digitalWrite(outputPin, LOW);
-    lastInterruptTime = currentTime;
-  }
-}
 
 void pinModeSetup()
 {
@@ -53,7 +37,6 @@ void pinModeSetup()
   pinMode(inputPin, INPUT_PULLDOWN); // プルアップ入力
   pinMode(outputPin, OUTPUT);        // 出力モード
   digitalWrite(outputPin, LOW);      // 初期はLOW
-
 }
 
 void pwmSetup()
@@ -78,7 +61,6 @@ void setup()
   Ps3.begin("5c:6d:20:2b:b2:f9"); // 9c:9c:1f:d0:04:be
   Serial.println("Ready.");
   pwmSetup();
-  attachInterrupt(digitalPinToInterrupt(inputPin), handleInterrupt, FALLING);
 }
 
 void WheelPwrOn()
@@ -135,7 +117,6 @@ void getWheelPwr()
     rightWheelPwr -= 5;
     leftWheelPwr += 5;
   }
-
   if (Ps3.data.button.left)
   {
     rightWheelPwr += 5;
@@ -168,8 +149,19 @@ void setWheelPwr()
   }
 }
 
+void emergency()
+{
+  triggered = true;
+  digitalWrite(outputPin, LOW);
+  WheelPwrOff();
+}
+
 void loop()
 {
+  if (digitalRead(inputPin) == 0) // スイッチが押された
+  {
+    emergency();
+  }
   if (triggered && digitalRead(inputPin) == HIGH) // スイッチ押されてない
   {
     triggered = false;
