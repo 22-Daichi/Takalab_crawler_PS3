@@ -1,4 +1,7 @@
 #include <Arduino.h>
+#include <WiFi.h>
+#include <WiFiUdp.h>
+
 #include <Ps3Controller.h>
 
 #define rightPwmCh 0
