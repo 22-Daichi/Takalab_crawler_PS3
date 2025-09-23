@@ -2,10 +2,31 @@
 #include <WiFi.h>
 #include <WiFiUdp.h>
 
-#include <Ps3Controller.h>
-
 #define rightPwmCh 0
 #define leftPwmCh 1
+
+const char *SSID = "FS050W_1_DA85A1";
+const char *PASS = "34MG4D9B4DnT";
+const uint16_t PORT = 50007;
+WiFiUDP udp;
+char rxbuf[256];
+
+// タイムアウト設定
+const uint32_t TIMEOUT_MS = 500; // 受信停止とみなす時間
+uint32_t last_rx_ms = 0;
+bool timeout_active = false; // 連続発火防止
+
+char btn[64];
+
+int sz, len, now, L;
+
+bool dpad_up = false, dpad_down = false, dpad_left = false, dpad_right = false, btn_x = false;
+
+// DパッドのBTN中の位置（0始まり）
+const int IDX_UP = 8;     // ↑
+const int IDX_DOWN = 9;   // ↓
+const int IDX_LEFT = 10;  // ←
+const int IDX_RIGHT = 11; // →
 
 volatile unsigned long lastInterruptTime = 0;
 volatile unsigned long currentTime = 0;
@@ -28,6 +49,20 @@ int maxPwr = 200;
 int t = 0;
 
 volatile bool triggered = true;
+
+// BTN=...;AX=...;SEQ=... から BTN だけ取り出す（簡易）
+bool get_btn_field(const char *src, char *out, size_t outsz)
+{
+  const char *p = strstr(src, "BTN=");
+  if (!p)
+    return false;
+  p += 4;
+  size_t i = 0;
+  while (*p && *p != ';' && i + 1 < outsz)
+    out[i++] = *p++;
+  out[i] = 0;
+  return i > 0;
+}
 
 void pinModeSetup()
 {
@@ -58,11 +93,16 @@ void onConnect()
 void setup()
 {
   pinModeSetup();
-  Serial.begin(9600);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(SSID, PASS);
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(300);
+  }
+  udp.begin(PORT);
   // Ps3.attach(notify);
-  Ps3.attachOnConnect(onConnect);
-  Ps3.begin("5c:6d:20:2b:b2:f9"); // 9c:9c:1f:d0:04:be
-  Serial.println("Ready.");
+  // Ps3.attachOnConnect(onConnect);
+  // Ps3.begin("5c:6d:20:2b:b2:f9"); // 9c:9c:1f:d0:04:be
   pwmSetup();
 }
 
@@ -105,27 +145,27 @@ void WheelPwrOff()
 
 void getWheelPwr()
 {
-  if (Ps3.data.button.up)
+  if (dpad_up)
   {
     rightWheelPwr += 5;
     leftWheelPwr += 5;
   }
-  if (Ps3.data.button.down)
+  if (dpad_down)
   {
     rightWheelPwr -= 5;
     leftWheelPwr -= 5;
   }
-  if (Ps3.data.button.right)
+  if (dpad_right)
   {
     rightWheelPwr -= 5;
     leftWheelPwr += 5;
   }
-  if (Ps3.data.button.left)
+  if (dpad_left)
   {
     rightWheelPwr += 5;
     leftWheelPwr -= 5;
   }
-  if (Ps3.data.button.cross)
+  if (btn_x)
   {
     WheelPwrOff();
   }
@@ -159,8 +199,25 @@ void emergency()
   WheelPwrOff();
 }
 
+void onTimeout()
+{
+  // 例：安全側に全てLOW（アクティブHigh前提）
+  WheelPwrOff();
+}
+
+void getValue()
+{
+  // ★ここを "文字 == '1'" にする（範囲チェックも一緒に）
+  btn_x = (L > 0 && btn[0] == '1');
+  dpad_up = (L > 8 && btn[8] == '1');
+  dpad_down = (L > 9 && btn[9] == '1');
+  dpad_left = (L > 10 && btn[10] == '1');
+  dpad_right = (L > 11 && btn[11] == '1');
+}
+
 void loop()
 {
+  // 緊急停止関連
   if (digitalRead(inputPin) == 0) // スイッチが押された
   {
     emergency();
@@ -170,16 +227,37 @@ void loop()
     triggered = false;
     digitalWrite(outputPin, HIGH);
   }
-  if (Ps3.isConnected())
+  // 通信が来ているか
+  now = millis();
+  if (!timeout_active && (now - last_rx_ms > TIMEOUT_MS))
+  {
+    timeout_active = true;
+    onTimeout();
+  }
+  // データ読み取り
+  sz = udp.parsePacket();
+  if (sz <= 0)
+    return;
+  len = udp.read((uint8_t *)rxbuf, min(sz, (int)sizeof(rxbuf) - 1));
+  if (len <= 0)
+    return;
+  rxbuf[len] = 0;
+
+  last_rx_ms = now;
+  timeout_active = false;
+
+  if (!get_btn_field(rxbuf, btn, sizeof(btn)))
+    return;
+
+  L = strlen(btn);
+
+  getValue();
+
+  if (timeout_active == 0)
   {
     getWheelPwr();
     setWheelPwr();
     WheelPwrOn();
-  }
-  if (!Ps3.isConnected())
-  {
-    Serial.println("NoConnection");
-    // wheelPwrOff();
   }
   delay(50);
 }
